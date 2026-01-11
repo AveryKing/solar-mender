@@ -8,6 +8,7 @@ pydantic-settings>=2.1.0
 langgraph>=0.0.10
 langchain-google-vertexai>=0.0.5
 langchain-core>=0.1.10
+langchain>=0.1.0
 PyGithub>=2.1.1
 python-dotenv>=1.0.1
 httpx>=0.26.0
