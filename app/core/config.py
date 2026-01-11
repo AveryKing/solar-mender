@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     LANGFUSE_SECRET_KEY: str = "sk-lf-..."
     LANGFUSE_HOST: str = "https://cloud.langfuse.com"
     
+    # Agent Configuration
+    AUTO_MERGE_ENABLED: bool = False
+    MIN_CONFIDENCE_THRESHOLD: float = 0.7
+    PR_DRAFT_BY_DEFAULT: bool = True
+    
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

@@ -25,21 +25,28 @@ async def fix_node(state: AgentState) -> AgentState:
         file_content = repo.get_contents(state['target_file_path'])
         original_text = file_content.decoded_content.decode()
         
+        from agent.prompts import FIX_PROMPT
+        
         model = await vertex_client.get_model("pro")
-        prompt = f"""
-        You are an expert software engineer. Fix the following code based on the reported root cause.
-        Return ONLY the full corrected file content. No markdown blocks.
-        
-        Root Cause: {state['root_cause']}
-        
-        File Path: {state['target_file_path']}
-        
-        Original Content:
-        {original_text}
-        """
+        prompt = FIX_PROMPT.format(
+            root_cause=state['root_cause'],
+            file_path=state['target_file_path'],
+            original_content=original_text
+        )
         
         response = await model.generate_content_async(prompt)
-        fixed_text = response.text.strip()
+        
+        # Parse JSON response
+        try:
+            result = json.loads(response.text.strip())
+            fixed_text = result.get("fixed_content", "")
+            fix_confidence = float(result.get("confidence", 0.5))
+            explanation = result.get("explanation", "")
+            logger.info(f"Fix explanation: {explanation}, confidence: {fix_confidence:.2f}")
+        except (json.JSONDecodeError, ValueError, KeyError) as e:
+            logger.warning(f"Failed to parse fix response as JSON: {e}, using raw text")
+            fixed_text = response.text.strip()
+            fix_confidence = 0.5
         
         # Estimate cost
         cost = estimate_vertex_cost(
@@ -52,6 +59,7 @@ async def fix_node(state: AgentState) -> AgentState:
             **state,
             "original_content": original_text,
             "fixed_content": fixed_text,
+            "fix_confidence": fix_confidence,
             "total_cost": cost
         }
     except Exception as e:

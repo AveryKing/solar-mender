@@ -33,18 +33,40 @@ async def pr_node(state: AgentState) -> AgentState:
             branch=branch_name
         )
         
-        # Create PR
+        from app.core.config import settings
+        
+        # Build PR body with confidence scores and metadata
+        pr_body = f"""This PR was automatically generated to fix the following CI failure.
+
+**Root Cause:** {state.get('root_cause', 'Unknown')}
+
+**Failure Category:** {state.get('failure_category', 'unknown')}
+
+**Confidence Scores:**
+- Diagnosis: {state.get('diagnosis_confidence', 0.0):.1%}
+- Fix: {state.get('fix_confidence', 0.0):.1%}
+
+**Estimated Vertex Cost:** ${state.get('total_cost', 0.0):.4f}
+
+**⚠️ Please review carefully before merging.**"""
+        
+        # Create PR (draft by default for human-in-the-loop)
+        is_draft = settings.PR_DRAFT_BY_DEFAULT and not settings.AUTO_MERGE_ENABLED
         pr = repo.create_pull(
             title=f"Repair: Fix CI failure in run {state['run_id']}",
-            body=f"This PR was automatically generated to fix the following failure:\n\n**Root Cause:** {state['root_cause']}\n\n**Estimated Vertex Cost:** ${state['total_cost']:.4f}",
+            body=pr_body,
             head=branch_name,
-            base="main"
+            base="main",
+            draft=is_draft
         )
+        
+        logger.info(f"Created {'draft' if is_draft else 'ready'} PR: {pr.html_url}")
         
         return {
             **state,
             "status": "PR_OPENED",
-            "pr_url": pr.html_url
+            "pr_url": pr.html_url,
+            "pr_draft": is_draft
         }
     except Exception as e:
         logger.error(f"Error in pr_node: {e}")

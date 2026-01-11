@@ -17,9 +17,15 @@ class AgentState(TypedDict):
     original_content: Optional[str]
     fixed_content: Optional[str]
     
+    # Confidence scoring
+    diagnosis_confidence: Optional[float]
+    fix_confidence: Optional[float]
+    failure_category: Optional[str]
+    
     # Metadata
     commit_author: Optional[str]
     total_cost: Annotated[float, operator.add]
     status: str
     error: Optional[str]
     pr_url: Optional[str]
+    pr_draft: bool

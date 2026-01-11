@@ -35,14 +35,22 @@ async def diagnose_node(state: AgentState) -> AgentState:
         # ... fetch logs ...
         logs_content = "Mock logs: Error: module 'axios' not found in app/utils/api.py"
         
+        from agent.prompts import DIAGNOSE_PROMPT
+        
         model = await vertex_client.get_model("flash")
-        prompt = f"""
-        Analyze the following GitHub Action failure logs and summarize the root cause in one sentence.
-        Logs:
-        {logs_content}
-        """
+        prompt = DIAGNOSE_PROMPT.format(logs=logs_content)
         
         response = await model.generate_content_async(prompt)
+        
+        # Parse JSON response
+        try:
+            result = json.loads(response.text.strip())
+            root_cause = result.get("root_cause", "")
+            confidence = float(result.get("confidence", 0.5))
+        except (json.JSONDecodeError, ValueError, KeyError) as e:
+            logger.warning(f"Failed to parse diagnose response as JSON: {e}, using raw text")
+            root_cause = response.text.strip()
+            confidence = 0.5
         
         # Estimate cost
         cost = estimate_vertex_cost(
@@ -54,7 +62,8 @@ async def diagnose_node(state: AgentState) -> AgentState:
         return {
             **state,
             "error_logs": logs_content,
-            "root_cause": response.text.strip(),
+            "root_cause": root_cause,
+            "diagnosis_confidence": confidence,
             "total_cost": cost,
             "commit_author": commit_author
         }
