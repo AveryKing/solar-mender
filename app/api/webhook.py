@@ -1,5 +1,6 @@
 import logging
 import json
+from urllib.parse import unquote
 from fastapi import APIRouter, Depends, Request, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,10 +30,26 @@ async def github_webhook(
     
     try:
         raw_body = await request.body()
-        logger.debug(f"Raw webhook body: {raw_body.decode()}")
+        logger.debug(f"Raw webhook body (first 500 chars): {raw_body.decode()[:500]}")
         
-        # Parse JSON manually to see what we're working with
-        body_dict = json.loads(raw_body)
+        # GitHub can send webhooks as either JSON or form-encoded
+        # Check content type
+        content_type = request.headers.get("Content-Type", "")
+        
+        if "application/x-www-form-urlencoded" in content_type:
+            # Parse form-encoded: payload=URL_ENCODED_JSON
+            body_str = raw_body.decode()
+            if body_str.startswith("payload="):
+                # Extract and URL-decode the payload
+                payload_json = unquote(body_str[8:])  # Skip "payload=" prefix
+                logger.debug(f"Extracted URL-decoded payload: {payload_json[:500]}")
+                body_dict = json.loads(payload_json)
+            else:
+                raise HTTPException(status_code=400, detail="Invalid form-encoded payload format")
+        else:
+            # Direct JSON
+            body_dict = json.loads(raw_body)
+        
         logger.debug(f"Parsed JSON keys: {list(body_dict.keys())}")
         
         # Now validate with Pydantic
@@ -42,7 +59,7 @@ async def github_webhook(
         raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
     except Exception as e:
         logger.error(f"Pydantic validation failed: {e}")
-        logger.error(f"Body was: {raw_body.decode() if 'raw_body' in locals() else 'N/A'}")
+        logger.error(f"Body was: {raw_body.decode()[:500] if 'raw_body' in locals() else 'N/A'}")
         raise HTTPException(status_code=422, detail=f"Validation error: {e}")
 
     if event_type == "ping":
