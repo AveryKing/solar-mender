@@ -12,14 +12,14 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
 
     # Database
-    DATABASE_URL: str
+    DATABASE_URL: str = "sqlite+aiosqlite:///./local.db"
 
     # GitHub
-    GITHUB_SECRET: str
-    GITHUB_TOKEN: str
+    GITHUB_SECRET: str = "placeholder_secret"
+    GITHUB_TOKEN: str = "placeholder_token"
     
     # Google Cloud / Vertex AI
-    GOOGLE_CLOUD_PROJECT: str
+    GOOGLE_CLOUD_PROJECT: str = "placeholder_project"
     GOOGLE_CLOUD_LOCATION: str = "us-central1"
     
     # Cloud Tasks

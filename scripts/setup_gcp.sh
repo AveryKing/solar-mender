@@ -40,7 +40,7 @@ gcloud run deploy $SERVICE_NAME \
     --region $REGION \
     --platform managed \
     --allow-unauthenticated \
-    --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=$REGION"
+    --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=$REGION,DATABASE_URL=sqlite+aiosqlite:///./local.db,GITHUB_SECRET=placeholder,GITHUB_TOKEN=placeholder"
 
 echo "🎉 Deployment complete!"
 echo "📍 Service URL: $(gcloud run services describe $SERVICE_NAME --region $REGION --format='value(status.url)')"
