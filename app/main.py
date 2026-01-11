@@ -16,12 +16,14 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 @app.on_event("startup")
 async def startup_event():
     """
-    Initialize database tables on startup (for local development).
-    In production, migrations should be handled by Alembic.
+    Initialize database tables on startup.
     """
-    async with engine.begin() as conn:
-        # Create tables if they don't exist
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as e:
+        print(f"Database initialization failed: {e}")
+        # In a real app, we might want to exit or log this properly
 
 @app.get("/")
 async def root():

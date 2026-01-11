@@ -13,18 +13,29 @@ def init_vertex_ai() -> None:
 class VertexAIClient:
     """
     Client wrapper for Vertex AI Gemini models.
+    Lazy initializes the models to prevent startup crashes.
     """
     def __init__(self):
-        init_vertex_ai()
-        # Gemini 1.5 Flash for fast analysis and summarization
-        self.flash_model = GenerativeModel("gemini-1.5-flash")
-        # Gemini 1.5 Pro for complex reasoning and coding
-        self.pro_model = GenerativeModel("gemini-1.5-pro")
+        self._flash_model = None
+        self._pro_model = None
+        self._initialized = False
+
+    def _init(self):
+        if not self._initialized:
+            try:
+                init_vertex_ai()
+                self._flash_model = GenerativeModel("gemini-1.5-flash")
+                self._pro_model = GenerativeModel("gemini-1.5-pro")
+                self._initialized = True
+            except Exception as e:
+                # Log error but don't crash the whole app on import
+                print(f"Vertex AI initialization failed: {e}")
 
     async def get_model(self, model_type: str = "flash") -> GenerativeModel:
         """Returns the requested model instance."""
+        self._init()
         if model_type == "pro":
-            return self.pro_model
-        return self.flash_model
+            return self._pro_model
+        return self._flash_model
 
 vertex_client = VertexAIClient()
