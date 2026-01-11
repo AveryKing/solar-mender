@@ -25,6 +25,12 @@ async def github_webhook(
     """
     # Check for Ping event
     event_type = request.headers.get("X-GitHub-Event")
+    logger.info(f"Received GitHub event: {event_type}")
+
+    # Log raw body for debugging Pydantic validation
+    raw_body = await request.body()
+    logger.debug(f"Raw webhook body: {raw_body.decode()}")
+
     if event_type == "ping":
         return {"message": "Pong"}
 

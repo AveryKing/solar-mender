@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     VERSION: str = "0.1.0"
     API_V1_STR: str = "/api/v1"
 
+    # Logging
+    LOG_LEVEL: str = "INFO"
+
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./local.db"
 
