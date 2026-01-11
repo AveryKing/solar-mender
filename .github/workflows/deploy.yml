@@ -56,3 +56,6 @@ jobs:
             GITHUB_SECRET=${{ secrets.GH_SECRET }}
             CLOUD_TASKS_QUEUE=${{ secrets.CLOUD_TASKS_QUEUE }}
             SERVICE_URL=${{ secrets.SERVICE_URL }}
+            LANGFUSE_PUBLIC_KEY=${{ secrets.LANGFUSE_PUBLIC_KEY }}
+            LANGFUSE_SECRET_KEY=${{ secrets.LANGFUSE_SECRET_KEY }}
+            LANGFUSE_HOST=${{ secrets.LANGFUSE_HOST }}

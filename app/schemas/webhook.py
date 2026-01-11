@@ -23,7 +23,7 @@ class GitHubWebhookPayload(BaseModel):
     Schema for the GitHub 'workflow_run' webhook payload.
     We strictly validate only what we need.
     """
-    action: str
+    action: Optional[str] = None
     workflow_run: Optional[WorkflowRun] = None
     repository: Optional[Repository] = None
     sender: Optional[Dict[str, Any]] = None

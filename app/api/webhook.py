@@ -23,6 +23,11 @@ async def github_webhook(
     Validates signature and filters for failed workflow runs.
     Dispatches to Cloud Tasks for reliable execution.
     """
+    # Check for Ping event
+    event_type = request.headers.get("X-GitHub-Event")
+    if event_type == "ping":
+        return {"message": "Pong"}
+
     # Only process 'workflow_run' events that have failed
     if not payload.workflow_run or payload.workflow_run.conclusion != "failure":
         return {"message": "Ignored: Not a failed workflow run"}
