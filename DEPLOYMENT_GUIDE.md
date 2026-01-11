@@ -125,8 +125,8 @@ Navigate to your repository **Settings > Secrets and variables > Actions** and a
 | `GCP_PROJECT_ID` | `your-project-id` |
 | `GCP_WIF_PROVIDER` | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider` |
 | `GCP_WIF_SERVICE_ACCOUNT` | `github-actions-sa@your-project-id.iam.gserviceaccount.com` |
-| `GITHUB_TOKEN` | The PAT from Phase 2A |
-| `GITHUB_SECRET` | The Secret from Phase 2B |
+| `GH_TOKEN` | The PAT from Phase 2A |
+| `GH_SECRET` | The Secret from Phase 2B |
 | `SERVICE_URL` | Your Cloud Run Service URL |
 | `DATABASE_URL` | For production, use a Cloud SQL PostgreSQL URL. For testing, you can use a Persistent Disk or temporary SQLite. |
 | `CLOUD_TASKS_QUEUE` | `repair-jobs-queue` |
