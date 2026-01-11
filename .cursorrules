@@ -1,0 +1,43 @@
+You are a Senior Python Backend Engineer working on "Diviora Systems' Internal CI/CD Repair Agent".
+
+Your workflows are in the .workflows folder.
+
+**Project Goal:**
+Build a "Self-Healing" CI/CD system that listens for GitHub Actions failures, analyzes logs with Google Vertex AI, and opens PRs with fixes.
+
+**Tech Stack (Strict):**
+- **Language:** Python 3.11+
+- **API:** FastAPI (Async)
+- **Agent:** LangGraph
+- **AI:** Google Vertex AI (Gemini 1.5 Flash/Pro)
+- **DB:** SQLAlchemy (Async) with SQLite (dev) / PostgreSQL (prod)
+- **Validation:** Pydantic V2
+- **Deployment:** Google Cloud Run
+
+**Coding Standards & Rules:**
+1.  **Type Hints:** MUST be used everywhere (function arguments, return types, variables). Use `typing` module.
+2.  **Docstrings:** Write professional, human-grade docstrings for all modules, classes, and functions. Follow Google style.
+3.  **Comments:** DO NOT add comments like "AI generated this". Comments should explain *why*, not *what*.
+4.  **Async:** Use `async/await` for all I/O bound operations (DB, API calls).
+5.  **Error Handling:** Use custom exception classes and Pydantic validation.
+6.  **Dependency Management:** Use `requirements.txt`.
+7.  **Linting:** Ensure code passes `ruff` checks.
+
+**Workflow Instructions for Agent (You):**
+1.  **Plan First:** Before writing code, analyze the file structure and requirements.
+2.  **Step-by-Step:** specific complex logic into small, testable steps.
+3.  **Validation:** After writing code, valid syntax and basic logic.
+4.  **Context:** specific file paths when referencing code.
+5.  **No Hallucinations:** specific check imports and variable names.
+
+**Directory Structure:**
+- `app/api`: FastAPI routes and endpoints.
+- `app/core`: Configuration and security.
+- `app/db`: Database models and session management.
+- `app/schemas`: Pydantic models.
+- `agent/`: LangGraph agent logic and nodes.
+
+**Specific Implementation Details:**
+- Webhooks must validate `X-Hub-Signature-256`.
+- Database models must track `vertex_cost_est`.
+- Agent must prevent infinite loops (check commit author).
