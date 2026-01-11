@@ -1,10 +1,11 @@
 import logging
-import json
 from github import Github
 from app.core.config import settings
 from agent.state import AgentState
 from agent.llm import vertex_client
 from agent.utils import estimate_vertex_cost
+from agent.schemas import DiagnoseResponse
+from agent.prompts import DIAGNOSE_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -30,41 +31,39 @@ async def diagnose_node(state: AgentState) -> AgentState:
             }
 
         # Fetch logs (simplified logic for brevity, PyGithub logs access)
-        # Note: In a real scenario, logs can be large; we'd fetch specific failed jobs
         logs_url = run.get_logs_url()
         # For this implementation, we assume we fetch the text summary of the logs
-        # ... fetch logs ...
         logs_content = "Mock logs: Error: module 'axios' not found in app/utils/api.py"
         
-        from agent.prompts import DIAGNOSE_PROMPT
+        # Get model and configure structured output
+        model = vertex_client.get_model("flash")
+        structured_llm = model.with_structured_output(DiagnoseResponse, include_raw=True)
         
-        model = await vertex_client.get_model("flash")
         prompt = DIAGNOSE_PROMPT.format(logs=logs_content)
         
-        response = await model.generate_content_async(prompt)
+        # Invoke model
+        response = await structured_llm.ainvoke(prompt)
         
-        # Parse JSON response
-        try:
-            result = json.loads(response.text.strip())
-            root_cause = result.get("root_cause", "")
-            confidence = float(result.get("confidence", 0.5))
-        except (json.JSONDecodeError, ValueError, KeyError) as e:
-            logger.warning(f"Failed to parse diagnose response as JSON: {e}, using raw text")
-            root_cause = response.text.strip()
-            confidence = 0.5
+        parsed_result: DiagnoseResponse = response["parsed"]
+        raw_response = response["raw"]
+        
+        # Get token usage from metadata
+        usage = raw_response.usage_metadata or {}
+        input_tokens = usage.get("input_tokens", 0)
+        output_tokens = usage.get("output_tokens", 0)
         
         # Estimate cost
         cost = estimate_vertex_cost(
             "gemini-1.5-flash", 
-            response.usage_metadata.prompt_token_count,
-            response.usage_metadata.candidates_token_count
+            input_tokens,
+            output_tokens
         )
         
         return {
             **state,
             "error_logs": logs_content,
-            "root_cause": root_cause,
-            "diagnosis_confidence": confidence,
+            "root_cause": parsed_result.root_cause,
+            "diagnosis_confidence": parsed_result.confidence,
             "total_cost": cost,
             "commit_author": commit_author
         }

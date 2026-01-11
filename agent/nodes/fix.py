@@ -1,10 +1,11 @@
 import logging
-import json
 from github import Github
 from app.core.config import settings
 from agent.state import AgentState
 from agent.llm import vertex_client
 from agent.utils import estimate_vertex_cost
+from agent.schemas import FixResponse
+from agent.prompts import FIX_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +27,6 @@ async def fix_node(state: AgentState) -> AgentState:
         file_content = repo.get_contents(state['target_file_path'])
         original_text = file_content.decoded_content.decode()
         
-        from agent.prompts import FIX_PROMPT
-        
         # Build context from related files
         context_summary = ""
         context_files = state.get("context_files", {})
@@ -36,32 +35,38 @@ async def fix_node(state: AgentState) -> AgentState:
             for file_path, content in list(context_files.items())[:3]:  # Limit to 3 files
                 context_summary += f"\n--- {file_path} ---\n{content[:500]}\n"
         
-        model = await vertex_client.get_model("pro")
+        # Get model and configure structured output
+        model = vertex_client.get_model("pro")
+        structured_llm = model.with_structured_output(FixResponse, include_raw=True)
+        
         prompt = FIX_PROMPT.format(
             root_cause=state['root_cause'],
             file_path=state['target_file_path'],
             original_content=original_text
         ) + context_summary
         
-        response = await model.generate_content_async(prompt)
+        # Invoke model
+        response = await structured_llm.ainvoke(prompt)
         
-        # Parse JSON response
-        try:
-            result = json.loads(response.text.strip())
-            fixed_text = result.get("fixed_content", "")
-            fix_confidence = float(result.get("confidence", 0.5))
-            explanation = result.get("explanation", "")
-            logger.info(f"Fix explanation: {explanation}, confidence: {fix_confidence:.2f}")
-        except (json.JSONDecodeError, ValueError, KeyError) as e:
-            logger.warning(f"Failed to parse fix response as JSON: {e}, using raw text")
-            fixed_text = response.text.strip()
-            fix_confidence = 0.5
+        parsed_result: FixResponse = response["parsed"]
+        raw_response = response["raw"]
+        
+        fixed_text = parsed_result.fixed_content
+        fix_confidence = parsed_result.confidence
+        explanation = parsed_result.explanation
+        
+        logger.info(f"Fix explanation: {explanation}, confidence: {fix_confidence:.2f}")
+        
+        # Get token usage from metadata
+        usage = raw_response.usage_metadata or {}
+        input_tokens = usage.get("input_tokens", 0)
+        output_tokens = usage.get("output_tokens", 0)
         
         # Estimate cost
         cost = estimate_vertex_cost(
             "gemini-1.5-pro", 
-            response.usage_metadata.prompt_token_count,
-            response.usage_metadata.candidates_token_count
+            input_tokens,
+            output_tokens
         )
         
         return {
