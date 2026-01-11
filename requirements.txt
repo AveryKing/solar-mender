@@ -13,5 +13,5 @@ python-dotenv>=1.0.1
 httpx>=0.26.0
 ruff>=0.3.0
 google-cloud-tasks>=2.16.0
-langfuse>=2.0.0
+langfuse>=2.14.0
 google-cloud-aiplatform>=1.38.0
