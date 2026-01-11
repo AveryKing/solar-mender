@@ -65,6 +65,20 @@ async def run_repair_worker(
         # Flush traces to ensure they are sent before the worker exits
         langfuse_handler.flush()
 
+        # Build reasoning log for audit trail
+        reasoning_parts = [
+            f"Diagnosis confidence: {final_state.get('diagnosis_confidence', 'N/A')}",
+            f"Fix confidence: {final_state.get('fix_confidence', 'N/A')}",
+            f"Failure category: {final_state.get('failure_category', 'N/A')}",
+            f"Root cause: {final_state.get('root_cause', 'N/A')}",
+            f"Target file: {final_state.get('target_file_path', 'N/A')}"
+        ]
+        reasoning_log = "\n".join(reasoning_parts)
+        
+        # Log reasoning
+        from app.core.cost_control import log_reasoning
+        await log_reasoning(db, job_id, reasoning_log)
+
         # Update database with results
         await db.execute(
             update(RepairJob)
@@ -73,7 +87,11 @@ async def run_repair_worker(
                 status=final_state.get("status", JobStatus.FAILED),
                 error_log_summary=final_state.get("root_cause"),
                 vertex_cost_est=final_state.get("total_cost", 0.0),
-                pr_url=final_state.get("pr_url")
+                pr_url=final_state.get("pr_url"),
+                pr_draft=final_state.get("pr_draft", False),
+                diagnosis_confidence=final_state.get("diagnosis_confidence"),
+                fix_confidence=final_state.get("fix_confidence"),
+                failure_category=final_state.get("failure_category")
             )
         )
         await db.commit()

@@ -28,10 +28,19 @@ class RepairJob(Base):
     error_log_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     vertex_cost_est: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     
+    # Metrics and reliability tracking
+    diagnosis_confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    fix_confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    failure_category: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    
+    # Audit trail
+    reasoning_log: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
     pr_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    pr_draft: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     def __repr__(self) -> str:
         return f"<RepairJob(id={self.id}, repo={self.repo_name}, status={self.status})>"

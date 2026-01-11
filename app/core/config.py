@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     MIN_CONFIDENCE_THRESHOLD: float = 0.7
     PR_DRAFT_BY_DEFAULT: bool = True
     
+    # Cost Controls
+    DAILY_COST_LIMIT: float = 100.0  # USD per day
+    COST_ALERT_THRESHOLD: float = 0.8  # Alert at 80% of limit
+    
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

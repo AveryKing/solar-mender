@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api import webhook, worker
+from app.api import webhook, worker, metrics
 
 api_router = APIRouter()
 
@@ -8,6 +8,9 @@ api_router.include_router(webhook.router, prefix="/webhook", tags=["webhooks"])
 
 # Include worker routes (Internal, protected by Cloud Tasks)
 api_router.include_router(worker.router, prefix="/worker", tags=["workers"])
+
+# Include metrics routes
+api_router.include_router(metrics.router, prefix="/metrics", tags=["metrics"])
 
 @api_router.get("/health", tags=["health"])
 async def health_check():
