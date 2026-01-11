@@ -16,6 +16,7 @@ class AgentState(TypedDict):
     target_file_path: Optional[str]
     original_content: Optional[str]
     fixed_content: Optional[str]
+    context_files: Optional[dict]  # Dict[str, str] - file paths to contents
     
     # Confidence scoring
     diagnosis_confidence: Optional[float]

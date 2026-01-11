@@ -9,6 +9,12 @@ Analyze the following GitHub Action failure logs and provide:
 1. A concise root cause summary (one sentence)
 2. A confidence score (0.0-1.0) indicating how certain you are about this diagnosis
 
+Common failure patterns:
+- Missing imports/dependencies: "import error", "module not found"
+- Syntax errors: "syntax error", "invalid syntax", "indentation error"
+- Test failures: "test failed", "assertion error"
+- Configuration issues: "config error", "environment variable"
+
 Format your response as JSON:
 {{
     "root_cause": "concise summary of the root cause",
@@ -33,6 +39,13 @@ Rules:
 - Include the complete file content (don't show diffs)
 - Maintain existing code style and patterns
 - Only fix what's broken, don't refactor unnecessarily
+- Pay attention to imports and related files context
+
+Example fixes:
+- Missing import: Add the import statement at the top
+- Syntax error: Fix the syntax while maintaining style
+- Type error: Add type hints or fix type mismatches
+- Missing dependency: Add to requirements.txt if needed
 
 Format:
 {{

@@ -27,12 +27,20 @@ async def fix_node(state: AgentState) -> AgentState:
         
         from agent.prompts import FIX_PROMPT
         
+        # Build context from related files
+        context_summary = ""
+        context_files = state.get("context_files", {})
+        if context_files:
+            context_summary = "\n\nRelated Files Context:\n"
+            for file_path, content in list(context_files.items())[:3]:  # Limit to 3 files
+                context_summary += f"\n--- {file_path} ---\n{content[:500]}\n"
+        
         model = await vertex_client.get_model("pro")
         prompt = FIX_PROMPT.format(
             root_cause=state['root_cause'],
             file_path=state['target_file_path'],
             original_content=original_text
-        )
+        ) + context_summary
         
         response = await model.generate_content_async(prompt)
         
