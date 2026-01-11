@@ -1,9 +1,12 @@
+import logging
 from langgraph.graph import StateGraph, END
 from agent.state import AgentState
 from agent.nodes.diagnose import diagnose_node
 from agent.nodes.locate import locate_node
 from agent.nodes.fix import fix_node
 from agent.nodes.github_pr import pr_node
+from langfuse.callback import CallbackHandler
+from app.core.config import settings
 
 def create_repair_graph():
     """
@@ -30,3 +33,11 @@ def create_repair_graph():
 
 # Singleton instance
 repair_agent = create_repair_graph()
+
+def get_langfuse_callback():
+    """Returns a configured Langfuse callback handler."""
+    return CallbackHandler(
+        public_key=settings.LANGFUSE_PUBLIC_KEY,
+        secret_key=settings.LANGFUSE_SECRET_KEY,
+        host=settings.LANGFUSE_HOST
+    )

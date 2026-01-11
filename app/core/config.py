@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     # The URL of the Cloud Run service to be called by Cloud Tasks
     SERVICE_URL: str = "https://your-service-url.a.run.app"
     
+    # Langfuse
+    LANGFUSE_PUBLIC_KEY: str = "pk-lf-..."
+    LANGFUSE_SECRET_KEY: str = "sk-lf-..."
+    LANGFUSE_HOST: str = "https://cloud.langfuse.com"
+    
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

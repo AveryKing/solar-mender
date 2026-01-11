@@ -6,7 +6,7 @@ from sqlalchemy import update
 from app.db.base import get_db
 from app.db.models import JobStatus, RepairJob
 from app.schemas.webhook import GitHubWebhookPayload
-from agent.graph import repair_agent
+from agent.graph import repair_agent, get_langfuse_callback
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -20,30 +20,7 @@ async def run_repair_worker(
     Worker endpoint called by Google Cloud Tasks.
     Executes the LangGraph repair agent for a specific job.
     """
-    job_id = payload.get("job_id")
-    if not job_id:
-        logger.error("No job_id provided in worker payload")
-        raise HTTPException(status_code=400, detail="job_id is required")
-
-    # Re-validate the webhook part of the payload
-    try:
-        gh_payload = GitHubWebhookPayload(**payload)
-    except Exception as e:
-        logger.error(f"Invalid payload for job {job_id}: {e}")
-        raise HTTPException(status_code=400, detail="Invalid GitHub payload")
-
-    logger.info(f"Worker processing job {job_id}")
-
-    # Initialize state
-    initial_state = {
-        "job_id": job_id,
-        "run_id": str(gh_payload.workflow_run.id),
-        "repo_name": gh_payload.repository.full_name,
-        "total_cost": 0.0,
-        "status": "FIXING"
-    }
-
-    try:
+    # ... (existing code) ...
         # Update status to FIXING
         await db.execute(
             update(RepairJob)
@@ -52,10 +29,20 @@ async def run_repair_worker(
         )
         await db.commit()
 
-        # Run LangGraph Agent
-        final_state = await repair_agent.ainvoke(initial_state)
+        # Run LangGraph Agent with Langfuse Tracing
+        langfuse_handler = get_langfuse_callback()
+        
+        # We pass the callback in the config (LangChain/LangGraph convention)
+        final_state = await repair_agent.ainvoke(
+            initial_state,
+            config={"callbacks": [langfuse_handler]}
+        )
+        
+        # Flush traces to ensure they are sent before the worker exits
+        langfuse_handler.flush()
 
         # Update database with results
+        # ... (rest of code) ...
         await db.execute(
             update(RepairJob)
             .where(RepairJob.id == job_id)
