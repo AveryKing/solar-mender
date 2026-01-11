@@ -1,4 +1,5 @@
 import logging
+from typing import Dict, Any
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import update
@@ -6,10 +7,11 @@ from sqlalchemy import update
 from app.db.base import get_db
 from app.db.models import JobStatus, RepairJob
 from app.schemas.webhook import GitHubWebhookPayload
-from agent.graph import repair_agent, get_langfuse_callback
+from agent.registry import get_registry
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
 
 @router.post("/run", status_code=status.HTTP_200_OK)
 async def run_repair_worker(
@@ -18,7 +20,7 @@ async def run_repair_worker(
 ):
     """
     Worker endpoint called by Google Cloud Tasks.
-    Executes the LangGraph repair agent for a specific job.
+    Executes the appropriate agent for a specific job based on agent_name.
     """
     job_id = payload.get("job_id")
     if not job_id:
@@ -34,69 +36,95 @@ async def run_repair_worker(
 
     logger.info(f"Worker processing job {job_id}")
 
-    # Initialize state with all required fields
-    initial_state = {
-        "job_id": job_id,
-        "run_id": str(gh_payload.workflow_run.id),
-        "repo_name": gh_payload.repository.full_name,
-        "total_cost": 0.0,
-        "status": "FIXING",
-        "pr_draft": False
-    }
+    # Get agent name from payload (default to 'repair' for backward compatibility)
+    agent_name = payload.get("agent_name", "repair")
+    registry = get_registry()
+    agent = registry.get(agent_name)
+    
+    if not agent:
+        logger.error(f"Agent '{agent_name}' not found in registry")
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found")
+
+    # Initialize state based on agent type
+    # For repair agent, use repair-specific state structure
+    if agent_name == "repair":
+        initial_state: Dict[str, Any] = {
+            "job_id": job_id,
+            "run_id": str(gh_payload.workflow_run.id),
+            "repo_name": gh_payload.repository.full_name,
+            "total_cost": 0.0,
+            "status": "FIXING",
+            "pr_draft": False
+        }
+    else:
+        # Generic state for other agents
+        initial_state = {
+            "job_id": job_id,
+            "agent_name": agent_name,
+            "status": "RUNNING",
+            "data": payload.get("data", {}),
+            "metadata": payload.get("metadata", {}),
+            "total_cost": 0.0
+        }
 
     try:
-        # Update status to FIXING
+        # Update status to FIXING/RUNNING
+        status_value = JobStatus.FIXING if agent_name == "repair" else JobStatus.FIXING
         await db.execute(
             update(RepairJob)
             .where(RepairJob.id == job_id)
-            .values(status=JobStatus.FIXING)
+            .values(status=status_value)
         )
         await db.commit()
 
-        # Run LangGraph Agent with Langfuse Tracing
-        langfuse_handler = get_langfuse_callback()
-        
-        # We pass the callback in the config (LangChain/LangGraph convention)
-        final_state = await repair_agent.ainvoke(
-            initial_state,
-            config={"callbacks": [langfuse_handler]}
-        )
-        
-        # Flush traces to ensure they are sent before the worker exits
-        langfuse_handler.flush()
+        # Execute agent
+        final_state = await agent.invoke(initial_state)
 
-        # Build reasoning log for audit trail
-        reasoning_parts = [
-            f"Diagnosis confidence: {final_state.get('diagnosis_confidence', 'N/A')}",
-            f"Fix confidence: {final_state.get('fix_confidence', 'N/A')}",
-            f"Failure category: {final_state.get('failure_category', 'N/A')}",
-            f"Root cause: {final_state.get('root_cause', 'N/A')}",
-            f"Target file: {final_state.get('target_file_path', 'N/A')}"
-        ]
-        reasoning_log = "\n".join(reasoning_parts)
-        
-        # Log reasoning
-        from app.core.cost_control import log_reasoning
-        await log_reasoning(db, job_id, reasoning_log)
+        # Build reasoning log for audit trail (repair-specific for now)
+        if agent_name == "repair":
+            reasoning_parts = [
+                f"Diagnosis confidence: {final_state.get('diagnosis_confidence', 'N/A')}",
+                f"Fix confidence: {final_state.get('fix_confidence', 'N/A')}",
+                f"Failure category: {final_state.get('failure_category', 'N/A')}",
+                f"Root cause: {final_state.get('root_cause', 'N/A')}",
+                f"Target file: {final_state.get('target_file_path', 'N/A')}"
+            ]
+            reasoning_log = "\n".join(reasoning_parts)
+            
+            # Log reasoning
+            from app.core.cost_control import log_reasoning
+            await log_reasoning(db, job_id, reasoning_log)
 
-        # Update database with results
-        await db.execute(
-            update(RepairJob)
-            .where(RepairJob.id == job_id)
-            .values(
-                status=final_state.get("status", JobStatus.FAILED),
-                error_log_summary=final_state.get("root_cause"),
-                vertex_cost_est=final_state.get("total_cost", 0.0),
-                pr_url=final_state.get("pr_url"),
-                pr_draft=final_state.get("pr_draft", False),
-                diagnosis_confidence=final_state.get("diagnosis_confidence"),
-                fix_confidence=final_state.get("fix_confidence"),
-                failure_category=final_state.get("failure_category")
+            # Update database with results (repair-specific)
+            await db.execute(
+                update(RepairJob)
+                .where(RepairJob.id == job_id)
+                .values(
+                    status=final_state.get("status", JobStatus.FAILED),
+                    error_log_summary=final_state.get("root_cause"),
+                    vertex_cost_est=final_state.get("total_cost", 0.0),
+                    pr_url=final_state.get("pr_url"),
+                    pr_draft=final_state.get("pr_draft", False),
+                    diagnosis_confidence=final_state.get("diagnosis_confidence"),
+                    fix_confidence=final_state.get("fix_confidence"),
+                    failure_category=final_state.get("failure_category")
+                )
             )
-        )
+        else:
+            # Generic update for other agents
+            final_status = JobStatus.PR_OPENED if final_state.get("status") == "PR_OPENED" else JobStatus.FAILED
+            await db.execute(
+                update(RepairJob)
+                .where(RepairJob.id == job_id)
+                .values(
+                    status=final_status,
+                    vertex_cost_est=final_state.get("total_cost", 0.0)
+                )
+            )
+        
         await db.commit()
         
-        return {"status": "completed", "job_id": job_id}
+        return {"status": "completed", "job_id": job_id, "agent": agent_name}
 
     except Exception as e:
         logger.error(f"Worker failed for job {job_id}: {e}")

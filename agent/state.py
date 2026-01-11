@@ -1,32 +1,23 @@
-from typing import TypedDict, List, Optional, Annotated
+from typing import TypedDict, Dict, Any, Optional, Annotated
 import operator
+
 
 class AgentState(TypedDict):
     """
-    State representation for the LangGraph agent.
+    Generic state representation for all agents.
+    
+    This is the base state schema. Agent-specific implementations
+    should extend this or use the 'data' field for agent-specific state.
     """
     # Core IDs
     job_id: int
-    run_id: str
-    repo_name: str
+    agent_name: str
+    status: str
     
-    # Context
-    error_logs: Optional[str]
-    root_cause: Optional[str]
-    target_file_path: Optional[str]
-    original_content: Optional[str]
-    fixed_content: Optional[str]
-    context_files: Optional[dict]  # Dict[str, str] - file paths to contents
-    
-    # Confidence scoring
-    diagnosis_confidence: Optional[float]
-    fix_confidence: Optional[float]
-    failure_category: Optional[str]
+    # Flexible data storage (agent-specific state)
+    data: Dict[str, Any]
     
     # Metadata
-    commit_author: Optional[str]
+    metadata: Dict[str, Any]
     total_cost: Annotated[float, operator.add]
-    status: str
     error: Optional[str]
-    pr_url: Optional[str]
-    pr_draft: bool
