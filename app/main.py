@@ -7,6 +7,7 @@ from app.api.router import api_router
 from app.core.config import settings
 from app.db.base import engine, Base
 from app.core.logging import configure_logging
+from app.core.agents import register_agents
 
 logger = logging.getLogger(__name__)
 
@@ -37,14 +38,24 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 @app.on_event("startup")
 async def startup_event():
     """
-    Initialize database tables on startup.
+    Initialize application on startup.
     """
     try:
+        # Register agents
+        register_agents()
+    except Exception as e:
+        logger.error(f"Agent registration failed: {e}", exc_info=True)
+        # Don't crash the app if agent registration fails
+        # Agents can be registered later if needed
+    
+    try:
+        # Initialize database tables
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables initialized")
     except Exception as e:
-        print(f"Database initialization failed: {e}")
-        # In a real app, we might want to exit or log this properly
+        logger.error(f"Database initialization failed: {e}", exc_info=True)
+        # In production, you might want to exit or retry
 
 @app.get("/")
 async def root():
