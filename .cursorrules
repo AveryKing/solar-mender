@@ -2,6 +2,8 @@ You are a Senior Python Backend Engineer working on "Diviora Systems' Internal C
 
 Your workflows are in the .workflows folder.
 
+Organize your work into modules. Each module has tasks. Track each task with a checkmark in an md file so all agents can stay organized.
+
 **Project Goal:**
 Build a "Self-Healing" CI/CD system that listens for GitHub Actions failures, analyzes logs with Google Vertex AI, and opens PRs with fixes.
 
