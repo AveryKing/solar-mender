@@ -57,8 +57,11 @@ def get_langfuse_callback():
         logging.warning("Langfuse CallbackHandler not available, returning None")
         return None
         
-    return CallbackHandler(
-        public_key=settings.LANGFUSE_PUBLIC_KEY,
-        secret_key=settings.LANGFUSE_SECRET_KEY,
-        host=settings.LANGFUSE_HOST
-    )
+    # Set environment variables for Langfuse to pick up
+    import os
+    os.environ["LANGFUSE_PUBLIC_KEY"] = settings.LANGFUSE_PUBLIC_KEY
+    os.environ["LANGFUSE_SECRET_KEY"] = settings.LANGFUSE_SECRET_KEY
+    os.environ["LANGFUSE_HOST"] = settings.LANGFUSE_HOST
+    
+    # Initialize without arguments to avoid keyword argument mismatch
+    return CallbackHandler()
