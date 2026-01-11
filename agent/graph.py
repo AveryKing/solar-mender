@@ -6,7 +6,7 @@ from agent.nodes.classify import classify_node
 from agent.nodes.locate import locate_node
 from agent.nodes.fix import fix_node
 from agent.nodes.github_pr import pr_node
-from langfuse import Langfuse
+from langfuse.callback import CallbackHandler
 from app.core.config import settings
 
 def create_repair_graph():
@@ -53,9 +53,8 @@ repair_agent = create_repair_graph()
 
 def get_langfuse_callback():
     """Returns a configured Langfuse callback handler."""
-    langfuse = Langfuse(
+    return CallbackHandler(
         public_key=settings.LANGFUSE_PUBLIC_KEY,
         secret_key=settings.LANGFUSE_SECRET_KEY,
         host=settings.LANGFUSE_HOST
     )
-    return langfuse.callback_handler()
