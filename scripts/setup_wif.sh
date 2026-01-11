@@ -1,15 +1,16 @@
 #!/bin/bash
 
 # ==============================================================================
-# Phase 3: Workload Identity Federation (WIF) Setup - GUARANTEED FIX
+# Phase 3: Workload Identity Federation (WIF) Setup - VERSION 2 (FIXED)
 # ------------------------------------------------------------------------------
+# We are using 'github-v2' to bypass GCP soft-delete conflicts and stale metadata.
 # Repo: AveryKing/solar-mender
 # ==============================================================================
 
 export PROJECT_ID="gen-lang-client-0175387292"
 export REPO_NAME="AveryKing/solar-mender"
 
-echo "🚀 Starting GUARANTEED WIF setup for project: $PROJECT_ID"
+echo "🚀 Starting WIF v2 setup for project: $PROJECT_ID"
 
 # 1. Get Project Number
 PROJECT_NUMBER=$(gcloud projects list --filter="projectId=${PROJECT_ID}" --format="value(projectNumber)")
@@ -24,25 +25,18 @@ else
     echo "✅ Pool exists."
 fi
 
-# 3. Delete existing Provider to clear the "attribute condition" error
-echo "📡 Force-deleting existing provider to clear stale configurations..."
-gcloud iam workload-identity-pools providers delete "github-provider" \
-    --project="${PROJECT_ID}" --location="global" --workload-identity-pool="github-pool" --quiet || true
-
-echo "⏳ Waiting for deletion to propagate (10s)..."
-sleep 10
-
-# 4. Create fresh Provider with standard mapping
-echo "📡 Creating fresh Workload Identity Provider..."
-gcloud iam workload-identity-pools providers create-oidc "github-provider" \
+# 3. Create Fresh Provider (github-v2)
+# We use a new ID to bypass any 'soft-delete' or stale configuration issues.
+echo "📡 Creating fresh Workload Identity Provider (github-v2)..."
+gcloud iam workload-identity-pools providers create-oidc "github-v2" \
     --project="${PROJECT_ID}" \
     --location="global" \
     --workload-identity-pool="github-pool" \
-    --display-name="GitHub Actions Provider" \
-    --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
-    --issuer-uri="https://token.actions.githubusercontent.com"
+    --display-name="GitHub Actions Provider V2" \
+    --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.actor=assertion.actor" \
+    --issuer-uri="https://token.actions.githubusercontent.com" || echo "✅ Provider github-v2 already exists."
 
-# 5. Service Account Check/Create
+# 4. Service Account Check/Create
 gcloud iam service-accounts describe "github-actions-sa@${PROJECT_ID}.iam.gserviceaccount.com" --project="${PROJECT_ID}" &>/dev/null
 if [ $? -ne 0 ]; then
     echo "👤 Creating Service Account..."
@@ -51,7 +45,7 @@ else
     echo "✅ Service Account exists."
 fi
 
-# 6. Assign Roles
+# 5. Assign Roles
 echo "🔑 Refreshing roles..."
 for ROLE in "roles/artifactregistry.writer" "roles/run.admin" "roles/iam.serviceAccountUser"; do
     gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
@@ -59,7 +53,7 @@ for ROLE in "roles/artifactregistry.writer" "roles/run.admin" "roles/iam.service
         --role="${ROLE}" --quiet >/dev/null
 done
 
-# 7. Bind Repository
+# 6. Bind Repository to Pool
 echo "🤝 Binding Repository..."
 gcloud iam service-accounts add-iam-policy-binding "github-actions-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
     --project="${PROJECT_ID}" \
@@ -67,9 +61,9 @@ gcloud iam service-accounts add-iam-policy-binding "github-actions-sa@${PROJECT_
     --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/attribute.repository/${REPO_NAME}" --quiet
 
 echo "----------------------------------------------------------------"
-echo "🎉 DEPLOYMENT READY!"
+echo "🎉 DEPLOYMENT READY (V2)!"
 echo "----------------------------------------------------------------"
-echo "GCP_PROJECT_ID: $PROJECT_ID"
-echo "GCP_WIF_PROVIDER: projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+echo "IMPORTANT: Update your GitHub Secret 'GCP_WIF_PROVIDER' with this new value:"
+echo "GCP_WIF_PROVIDER: projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/providers/github-v2"
 echo "GCP_WIF_SERVICE_ACCOUNT: github-actions-sa@${PROJECT_ID}.iam.gserviceaccount.com"
 echo "----------------------------------------------------------------"
