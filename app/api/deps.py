@@ -29,6 +29,9 @@ async def verify_github_signature(
         raise HTTPException(status_code=500, detail="GITHUB_SECRET is not configured")
 
     body = await request.body()
+    # Cache body in request state so it can be reused in the route handler
+    request.state.body = body
+    
     signature = "sha256=" + hmac.new(
         settings.GITHUB_SECRET.encode(),
         body,

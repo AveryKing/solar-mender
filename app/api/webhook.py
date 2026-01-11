@@ -29,11 +29,11 @@ async def github_webhook(
     logger.info(f"Received GitHub event: {event_type}")
     
     try:
-        raw_body = await request.body()
+        # Use cached body from signature verification (already consumed)
+        raw_body = request.state.body
         logger.debug(f"Raw webhook body (first 500 chars): {raw_body.decode()[:500]}")
         
-        # GitHub can send webhooks as either JSON or form-encoded
-        # Check content type
+        # GitHub sends JSON by default, but we check for form-encoded just in case
         content_type = request.headers.get("Content-Type", "")
         
         if "application/x-www-form-urlencoded" in content_type:
@@ -47,7 +47,7 @@ async def github_webhook(
             else:
                 raise HTTPException(status_code=400, detail="Invalid form-encoded payload format")
         else:
-            # Direct JSON
+            # Direct JSON (GitHub's default)
             body_dict = json.loads(raw_body)
         
         logger.debug(f"Parsed JSON keys: {list(body_dict.keys())}")
