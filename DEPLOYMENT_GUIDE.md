@@ -1,94 +1,158 @@
-# Configuration & Deployment Guide: CI/CD Repair Agent
+# 🛠️ Comprehensive Deployment Guide: CI/CD Repair Agent
 
-This guide provides step-by-step instructions to configure, authenticate, and deploy the Diviora Systems CI/CD Repair Agent.
-
----
-
-## 1. GitHub Configuration
-
-### A. Create a Personal Access Token (PAT)
-The agent needs a token to read logs, fetch code, and open Pull Requests.
-1.  Go to **GitHub Settings > Developer settings > Personal access tokens > Fine-grained tokens**.
-2.  Click **Generate new token**.
-3.  **Permissions**:
-    *   **Repository permissions**:
-        *   `Contents`: Read and write (to fix code and create branches).
-        *   `Pull requests`: Read and write (to open PRs).
-        *   `Workflows`: Read (to see run status).
-        *   `Actions`: Read (to fetch logs).
-4.  Copy the token as `GITHUB_TOKEN`.
-
-### B. Configure GitHub Webhook
-1.  Go to your Repository **Settings > Webhooks > Add webhook**.
-2.  **Payload URL**: `https://<your-cloud-run-url>/api/v1/webhook/github`
-    *   *Note: You will get this URL after running the setup script.*
-3.  **Content type**: `application/json`
-4.  **Secret**: Create a random strong string (e.g., `openssl rand -base64 32`). Copy this as `GITHUB_SECRET`.
-5.  **Events**: Select **Let me select individual events** and check **Workflow runs**.
+This guide walk you through the end-to-end process of setting up the **Diviora Systems CI/CD Repair Agent**. This system uses FastAPI for webhooks, Google Cloud Tasks for queueing, and Google Vertex AI for self-healing logic.
 
 ---
 
-## 2. Google Cloud Platform (GCP) Setup
+## 📋 Prerequisites
+Before you begin, ensure you have:
+1.  **A Google Cloud Project** with billing enabled.
+2.  **Google Cloud SDK (gcloud CLI)** installed and authenticated: `gcloud auth login`.
+3.  **GitHub Repository** where you want to install the repair agent.
+4.  **Python 3.11+** installed locally for testing.
 
-### A. Initial Provisioning
-Run the provided setup script to enable APIs and create the necessary infrastructure:
+---
+
+## 1️⃣ Phase 1: Google Cloud Infrastructure
+We will use a combination of automated scripts and manual verification.
+
+### A. Run the Setup Script
+The script `scripts/setup_gcp.sh` is designed to be idempotent. It handles API enablement and resource creation.
 ```bash
+chmod +x scripts/setup_gcp.sh
 ./scripts/setup_gcp.sh
 ```
+**What this does:**
+*   Enables `run.googleapis.com`, `cloudtasks.googleapis.com`, `aiplatform.googleapis.com`, and `artifactregistry.googleapis.com`.
+*   Creates an Artifact Registry repo named `solar-mender-repo`.
+*   Creates a Cloud Tasks queue named `repair-jobs-queue`.
+*   Deploys a "placeholder" version of the app to get your **Service URL**.
 
-### B. Vertex AI
-Ensure your project has the **Vertex AI User** role enabled for the service account running Cloud Run (usually the `Default Compute Service Account` or a custom one).
-
-### C. Cloud Tasks
-The setup script creates a queue named `repair-jobs-queue`. If you want to use a different name, update it in `app/core/config.py`.
+### B. Note the Service URL
+After the script finishes, it will print a `Service URL`. It looks like:
+`https://solar-mender-xyz-uc.a.run.app`
+**You will need this for the GitHub Webhook.**
 
 ---
 
-## 3. GitHub Actions CI/CD (Production)
+## 2️⃣ Phase 2: GitHub Integration
 
-We use **Workload Identity Federation** to avoid storing long-lived GCP keys.
+### A. Create a Fine-Grained Personal Access Token (PAT)
+1.  Go to **GitHub Settings > Developer settings > Personal access tokens > Fine-grained tokens**.
+2.  Click **Generate new token**.
+3.  **Token Name**: `Diviora-Repair-Agent-Token`
+4.  **Repository access**: Select **Only select repositories** and pick your target repo.
+5.  **Permissions**:
+    *   `Actions`: Read (to fetch build logs)
+    *   `Contents`: Read & Write (to fetch code and commit fixes)
+    *   `Metadata`: Read (auto-selected)
+    *   `Pull requests`: Read & Write (to open and comment on PRs)
+    *   `Workflows`: Read (to see workflow status)
+6.  **Generate** and copy the token. **This is your `GITHUB_TOKEN`**.
 
-### A. Setup WIF (One-time)
-Run these commands in your terminal to allow GitHub to talk to GCP:
+### B. Create a Webhook Secret
+Create a secure random string. You can use this command:
 ```bash
-# 1. Create a Workload Identity Pool
-gcloud iam workload-identity-pools create "github-pool" --location="global"
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+**This is your `GITHUB_SECRET`**.
 
-# 2. Create a Workload Identity Provider
+### C. Configure the Repository Webhook
+1.  In your GitHub Repo, go to **Settings > Webhooks > Add webhook**.
+2.  **Payload URL**: `<YOUR_SERVICE_URL>/api/v1/webhook/github`
+3.  **Content type**: `application/json`
+4.  **Secret**: Paste your `GITHUB_SECRET`.
+5.  **Which events?**: Select **Let me select individual events** and check:
+    *   ✅ Workflow runs
+6.  **Add webhook**.
+
+---
+
+## 3️⃣ Phase 3: Secure CI/CD with Workload Identity Federation (WIF)
+To avoid using insecure service account keys, we use WIF.
+
+### A. Provision WIF Resources
+Run these commands, replacing variables as needed:
+```bash
+export PROJECT_ID="your-project-id"
+export REPO_NAME="org/your-repo" # e.g., "diviora/solar-mender"
+
+# 1. Create Pool
+gcloud iam workload-identity-pools create "github-pool" \
+    --project="${PROJECT_ID}" --location="global" \
+    --display-name="GitHub Actions Pool"
+
+# 2. Create Provider
 gcloud iam workload-identity-pools providers create-oidc "github-provider" \
-    --location="global" --workload-identity-pool="github-pool" \
+    --project="${PROJECT_ID}" --location="global" \
+    --workload-identity-pool="github-pool" \
+    --display-name="GitHub Actions Provider" \
     --issuer-uri="https://token.actions.githubusercontent.com" \
     --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository"
 
-# 3. Allow GitHub to impersonate your Service Account
-gcloud iam service-accounts add-iam-policy-binding "YOUR_SERVICE_ACCOUNT_EMAIL" \
-    --project="YOUR_PROJECT_ID" \
+# 3. Create Service Account for GitHub Actions
+gcloud iam service-accounts create "github-actions-sa" \
+    --project="${PROJECT_ID}" --display-name="GitHub Actions SA"
+
+# 4. Grant Roles to the Service Account
+# Artifact Registry
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+    --member="serviceAccount:github-actions-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
+    --role="roles/artifactregistry.writer"
+# Cloud Run
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+    --member="serviceAccount:github-actions-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
+    --role="roles/run.admin"
+# IAM to pass roles
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+    --member="serviceAccount:github-actions-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
+    --role="roles/iam.serviceAccountUser"
+
+# 5. Connect Provider to Service Account
+gcloud iam service-accounts add-iam-policy-binding "github-actions-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
+    --project="${PROJECT_ID}" \
     --role="roles/iam.workloadIdentityUser" \
-    --member="principalSet://iam.googleapis.com/projects/YOUR_PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/attribute.repository/YOUR_ORG/YOUR_REPO"
+    --member="principalSet://iam.googleapis.com/projects/$(gcloud projects list --filter="projectId=${PROJECT_ID}" --format="value(projectNumber)")/locations/global/workloadIdentityPools/github-pool/attribute.repository/${REPO_NAME}"
 ```
-
-### B. GitHub Secrets
-Add the following to **Settings > Secrets and variables > Actions**:
-
-| Secret Name | Description |
-| :--- | :--- |
-| `GCP_PROJECT_ID` | Your Google Cloud Project ID |
-| `GCP_WIF_PROVIDER` | `projects/NUM/locations/global/workloadIdentityPools/github-pool/providers/github-provider` |
-| `GCP_WIF_SERVICE_ACCOUNT` | The email of the service account created in Step 3A |
-| `GITHUB_TOKEN` | The PAT created in Step 1A |
-| `GITHUB_SECRET` | The Webhook Secret created in Step 1B |
-| `SERVICE_URL` | The URL of your Cloud Run service |
-| `DATABASE_URL` | Connection string (e.g., `postgresql+asyncpg://...`) |
 
 ---
 
-## 4. Local Development
+## 4️⃣ Phase 4: Configure GitHub Secrets
+Navigate to your repository **Settings > Secrets and variables > Actions** and add:
 
-1.  Copy `env.example` to `.env`.
-2.  Fill in the values. For local DB, use:
-    `DATABASE_URL=sqlite+aiosqlite:///./local.db`
-3.  Install dependencies: `make install`
-4.  Run the app: `make dev`
-5.  Use `ngrok` to tunnel the webhook to your local machine:
-    `ngrok http 8080`
-    *Update your GitHub Webhook URL to the ngrok URL for testing.*
+| Name | Value |
+| :--- | :--- |
+| `GCP_PROJECT_ID` | `your-project-id` |
+| `GCP_WIF_PROVIDER` | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider` |
+| `GCP_WIF_SERVICE_ACCOUNT` | `github-actions-sa@your-project-id.iam.gserviceaccount.com` |
+| `GITHUB_TOKEN` | The PAT from Phase 2A |
+| `GITHUB_SECRET` | The Secret from Phase 2B |
+| `SERVICE_URL` | Your Cloud Run Service URL |
+| `DATABASE_URL` | For production, use a Cloud SQL PostgreSQL URL. For testing, you can use a Persistent Disk or temporary SQLite. |
+| `CLOUD_TASKS_QUEUE` | `repair-jobs-queue` |
+
+---
+
+## 🔍 Troubleshooting & Monitoring
+
+### 1. Webhook 403 Forbidden
+*   **Cause**: The HMAC signature verification failed.
+*   **Fix**: Ensure the `GITHUB_SECRET` in your GitHub Webhook settings matches exactly the `GITHUB_SECRET` in your Cloud Run environment variables.
+
+### 2. Cloud Tasks Failures
+*   **Cause**: The service account running your app doesn't have `roles/cloudtasks.enqueuer`.
+*   **Fix**: Grant the `Cloud Tasks Enqueuer` role to the default compute service account of your project.
+
+### 3. Infinite Loops
+*   **Cause**: The agent is fixing its own failures.
+*   **Fix**: We have code to prevent this, but check that the GitHub token you use is linked to a user/bot named `repair-agent` as per the logic in `agent/nodes/diagnose.py`.
+
+### 4. Vertex AI 403 Permission Denied
+*   **Cause**: Vertex AI API not enabled or lack of `roles/aiplatform.user`.
+*   **Fix**: Enable AI Platform in the console and ensure the Cloud Run service account has permission.
+
+### 5. Viewing Logs
+To see what the agent is thinking:
+```bash
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=solar-mender" --limit 20
+```
