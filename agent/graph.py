@@ -53,6 +53,10 @@ repair_agent = create_repair_graph()
 
 def get_langfuse_callback():
     """Returns a configured Langfuse callback handler."""
+    if not CallbackHandler:
+        logging.warning("Langfuse CallbackHandler not available, returning None")
+        return None
+        
     return CallbackHandler(
         public_key=settings.LANGFUSE_PUBLIC_KEY,
         secret_key=settings.LANGFUSE_SECRET_KEY,
