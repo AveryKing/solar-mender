@@ -1,8 +1,8 @@
 # Intelligence Module Tasks
 
-- [ ] Add multi-file context reading in locate node
-- [ ] Enhance fix node to read related files (imports, tests)
-- [ ] Implement failure classification system
-- [ ] Add few-shot examples to prompts
-- [ ] Create pattern matching for common failure types
-- [ ] Add project structure awareness
+- [x] Add multi-file context reading in locate node
+- [x] Enhance fix node to read related files (imports, tests)
+- [x] Implement failure classification system
+- [x] Add few-shot examples to prompts
+- [x] Create pattern matching for common failure types
+- [x] Add project structure awareness
