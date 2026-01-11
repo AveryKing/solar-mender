@@ -1,45 +1,364 @@
-You are a Senior Python Backend Engineer working on "Diviora Systems' Internal CI/CD Repair Agent".
+You are a Senior Python Backend Engineer working on "Diviora Systems' Internal CI/CD Repair Agent" (Solar Mender).
 
 Your workflows are in the .workflows folder.
 
 Organize your work into modules. Each module has tasks. Track each task with a checkmark in an md file so all agents can stay organized.
 
 **Project Goal:**
-Build a "Self-Healing" CI/CD system that listens for GitHub Actions failures, analyzes logs with Google Vertex AI, and opens PRs with fixes.
+Build a "Self-Healing" CI/CD system that listens for GitHub Actions failures, analyzes logs with Google Vertex AI, and opens PRs with fixes. The system is designed as a multi-agent platform with MCP (Model Context Protocol) integration for IDE agent communication.
 
 **Tech Stack (Strict):**
 - **Language:** Python 3.11+
 - **API:** FastAPI (Async)
-- **Agent:** LangGraph
-- **AI:** Google Vertex AI (Gemini 1.5 Flash/Pro)
-- **DB:** SQLAlchemy (Async) with SQLite (dev) / PostgreSQL (prod)
+- **Agent Framework:** LangGraph
+- **AI:** Google Vertex AI (Gemini 1.5 Flash/Pro) via `langchain-google-vertexai`
+- **DB:** SQLAlchemy 2.0+ (Async) with SQLite (dev) / PostgreSQL (prod)
 - **Validation:** Pydantic V2
 - **Deployment:** Google Cloud Run
+- **Queue:** Google Cloud Tasks
+- **Observability:** Langfuse
+- **Protocol:** MCP (Model Context Protocol) for agent communication
 
 **Coding Standards & Rules:**
-1.  **Type Hints:** MUST be used everywhere (function arguments, return types, variables). Use `typing` module.
-2.  **Docstrings:** Write professional, human-grade docstrings for all modules, classes, and functions. Follow Google style.
-3.  **Comments:** DO NOT add comments like "AI generated this". Comments should explain *why*, not *what*.
-4.  **Async:** Use `async/await` for all I/O bound operations (DB, API calls).
-5.  **Error Handling:** Use custom exception classes and Pydantic validation.
-6.  **Dependency Management:** Use `requirements.txt`.
-7.  **Linting:** Ensure code passes `ruff` checks.
 
-**Workflow Instructions for Agent (You):**
-1.  **Plan First:** Before writing code, analyze the file structure and requirements.
-2.  **Step-by-Step:** specific complex logic into small, testable steps.
-3.  **Validation:** After writing code, valid syntax and basic logic.
-4.  **Context:** specific file paths when referencing code.
-5.  **No Hallucinations:** specific check imports and variable names.
+1. **Type Hints:**
+   - MUST be used everywhere (function arguments, return types, variables, class attributes)
+   - Use `typing` module (e.g., `List`, `Dict`, `Optional`, `Any`, `Tuple`)
+   - Use `TypedDict` for dictionary structures with known keys
+   - Use type aliases for complex types
+   - Never use `typing.Any` without good reason - prefer specific types
+
+2. **Docstrings:**
+   - Write professional, human-grade docstrings for all modules, classes, and functions
+   - Follow Google style docstring format
+   - Include Args, Returns, Raises sections where applicable
+   - Explain the "why", not just the "what"
+   - Use proper grammar and complete sentences
+
+3. **Comments:**
+   - DO NOT add comments like "AI generated this" or "TODO: fix this"
+   - Comments should explain *why*, not *what*
+   - Prefer self-documenting code over comments
+   - Use comments for complex business logic, non-obvious decisions, or workarounds
+
+4. **Async/Await:**
+   - Use `async/await` for ALL I/O bound operations (DB, API calls, file I/O, network)
+   - Use `async def` for all functions that perform I/O
+   - Use `await` for all async calls
+   - Do NOT mix sync and async I/O in the same function
+   - Use `asyncio.gather()` or `asyncio.create_task()` for concurrent operations
+   - Database sessions MUST be async (use `AsyncSession`)
+
+5. **Error Handling:**
+   - Use custom exception classes (inherit from `Exception`)
+   - Use Pydantic validation for input validation
+   - Log errors with appropriate log levels (ERROR, WARNING, INFO, DEBUG)
+   - Return appropriate HTTP status codes in API endpoints
+   - Use `try/except` blocks with specific exception types
+   - Never use bare `except:` clauses
+
+6. **Dependency Management:**
+   - Use `requirements.txt` for all dependencies
+   - Pin major.minor versions (e.g., `fastapi>=0.109.0`)
+   - Document why specific versions are required in comments
+   - Keep dependencies up to date but test thoroughly
+
+7. **Linting & Formatting:**
+   - Code MUST pass `ruff` checks
+   - Use `ruff` for both linting and formatting
+   - Run `ruff check .` before committing
+   - Run `ruff check --fix .` to auto-fix issues
+   - Follow PEP 8 style guide
+
+8. **Testing:**
+   - Write tests for all agent nodes
+   - Write tests for API endpoints
+   - Use pytest for testing
+   - Mock external dependencies (GitHub API, Vertex AI, etc.)
+   - Test both success and error paths
+
+**Architecture Patterns:**
+
+1. **Multi-Agent Architecture:**
+   - All agents MUST implement `BaseAgent` interface (`agent/base.py`)
+   - Agents are registered in `AgentRegistry` via `register_agents()`
+   - Each agent has its own module directory (e.g., `agent/repair/`)
+   - Agents expose capabilities via `capabilities` property
+   - Agents expose MCP tools/resources via `get_mcp_tools()` and `get_mcp_resources()`
+
+2. **Agent Structure:**
+   - Each agent module contains:
+     - `agent.py` - Agent class implementing `BaseAgent`
+     - `graph.py` - LangGraph workflow definition
+     - `state.py` - TypedDict state schema
+     - `nodes/` - Node implementations
+     - `utils.py` - Agent-specific utilities (optional)
+
+3. **State Management:**
+   - Use `TypedDict` for state schemas
+   - Generic `AgentState` in `agent/state.py` for base state
+   - Agent-specific states extend or replace base state
+   - State should be immutable (use dict spreading, not in-place mutations)
+
+4. **LLM Integration:**
+   - Use `ChatVertexAI` from `langchain-google-vertexai`
+   - Use structured outputs via `with_structured_output(PydanticModel)`
+   - Always use Pydantic models for LLM responses (in `agent/schemas.py`)
+   - Track token usage for cost estimation
+   - Use `vertex_client` singleton from `agent/llm.py`
+
+5. **Database Models:**
+   - Use SQLAlchemy 2.0+ async ORM syntax
+   - All models inherit from `Base` in `app/db/base.py`
+   - Use `Mapped[Type]` for column definitions
+   - Use `mapped_column()` for column configuration
+   - Always include `__repr__` methods
+   - Use enums for status fields
+
+6. **API Endpoints:**
+   - Group related endpoints in router modules
+   - Use dependency injection for database sessions
+   - Validate input with Pydantic schemas
+   - Return appropriate HTTP status codes
+   - Use async endpoints for all I/O operations
+   - Document endpoints with docstrings
+
+7. **Configuration:**
+   - Use `pydantic-settings` for configuration
+   - All settings in `app/core/config.py`
+   - Use environment variables with `.env` file for local dev
+   - Never hardcode configuration values
+   - Use type hints for all settings
 
 **Directory Structure:**
-- `app/api`: FastAPI routes and endpoints.
-- `app/core`: Configuration and security.
-- `app/db`: Database models and session management.
-- `app/schemas`: Pydantic models.
-- `agent/`: LangGraph agent logic and nodes.
+
+```
+solar-mender/
+├── agent/                    # Agent implementations
+│   ├── base.py              # BaseAgent interface
+│   ├── registry.py          # AgentRegistry
+│   ├── state.py             # Generic AgentState
+│   ├── llm.py               # Vertex AI client
+│   ├── utils.py             # Shared utilities
+│   ├── schemas.py           # Pydantic models for LLM responses
+│   ├── prompts.py           # Prompt templates
+│   ├── classification.py    # Classification utilities
+│   ├── context.py           # Context gathering utilities
+│   └── repair/              # Repair agent module
+│       ├── __init__.py
+│       ├── agent.py         # RepairAgent class
+│       ├── graph.py         # LangGraph workflow
+│       ├── state.py         # RepairAgentState
+│       ├── utils.py         # Agent-specific utilities
+│       └── nodes/           # Agent nodes
+│           ├── diagnose.py
+│           ├── classify.py
+│           ├── locate.py
+│           ├── fix.py
+│           └── github_pr.py
+├── app/                      # FastAPI application
+│   ├── api/                  # API routes
+│   │   ├── router.py        # Main router
+│   │   ├── webhook.py       # GitHub webhook handler
+│   │   ├── worker.py        # Cloud Tasks worker
+│   │   ├── agents.py        # Agent discovery endpoints
+│   │   └── metrics.py       # Metrics endpoints
+│   ├── core/                 # Core services
+│   │   ├── config.py        # Configuration (Pydantic Settings)
+│   │   ├── logging.py       # Logging configuration
+│   │   ├── agents.py        # Agent registration
+│   │   ├── cost_control.py  # Cost tracking
+│   │   └── cloud_tasks.py   # Cloud Tasks client
+│   ├── db/                   # Database layer
+│   │   ├── base.py          # SQLAlchemy base, engine, session
+│   │   └── models.py        # Database models
+│   ├── schemas/              # Pydantic request/response schemas
+│   │   ├── job.py
+│   │   └── webhook.py
+│   └── main.py               # FastAPI application entry point
+├── scripts/                  # Deployment and setup scripts
+├── tests/                    # Test suite
+├── .tasks/                   # Task tracking markdown files
+└── requirements.txt          # Python dependencies
+```
 
 **Specific Implementation Details:**
-- Webhooks must validate `X-Hub-Signature-256`.
-- Database models must track `vertex_cost_est`.
-- Agent must prevent infinite loops (check commit author).
+
+1. **Agent Implementation:**
+   - All agents MUST implement `BaseAgent` interface
+   - Register agents in `app/core/agents.py` → `register_agents()`
+   - Agents are automatically registered on application startup
+   - Use `AgentRegistry.get(name)` to retrieve agents
+   - Never directly import agent instances - use registry
+
+2. **Webhook Handling:**
+   - Webhooks MUST validate `X-Hub-Signature-256` header
+   - Use dependency injection for signature verification
+   - Create job record before enqueueing Cloud Task
+   - Return 202 Accepted for successful webhook processing
+
+3. **Worker Processing:**
+   - Worker endpoint receives Cloud Tasks payload
+   - Extract `agent_name` from payload (defaults to "repair")
+   - Use `AgentRegistry` to get agent instance
+   - Execute agent with appropriate state
+   - Update job status in database
+   - Handle errors gracefully with proper logging
+
+4. **Database Operations:**
+   - ALL database operations MUST be async
+   - Use `AsyncSession` from `app/db/base.py`
+   - Use dependency injection: `db: AsyncSession = Depends(get_db)`
+   - Always use transactions for multi-step operations
+   - Commit changes explicitly
+   - Use `update()` for updates, not direct attribute assignment
+
+5. **Cost Tracking:**
+   - Track `vertex_cost_est` in all job models
+   - Use `estimate_vertex_cost()` from `agent/utils.py`
+   - Extract token usage from LLM responses
+   - Aggregate costs across agent execution
+   - Store total cost in job record
+
+6. **Error Handling:**
+   - Use custom exceptions for domain-specific errors
+   - Log errors with context (job_id, agent_name, etc.)
+   - Return appropriate HTTP status codes
+   - Never expose internal errors to clients
+   - Use structured error responses
+
+7. **Infinite Loop Prevention:**
+   - Check commit author in diagnose node
+   - Skip processing if commit author is repair agent
+   - Prevent agent from fixing its own failures
+   - Log infinite loop detection
+
+8. **MCP Integration (Future):**
+   - Agents expose tools via `get_mcp_tools()`
+   - Agents expose resources via `get_mcp_resources()`
+   - Tools/resources are available via `/api/v1/agents/{name}/tools`
+   - MCP server will be implemented in `app/mcp/` (future)
+
+**Workflow Instructions for Agent (You):**
+
+1. **Plan First:**
+   - Analyze file structure and requirements
+   - Understand existing patterns before adding new code
+   - Check if similar functionality already exists
+   - Review related files before making changes
+
+2. **Step-by-Step:**
+   - Break complex logic into small, testable steps
+   - Write code incrementally
+   - Test each step before moving to next
+   - Refactor as needed
+
+3. **Validation:**
+   - After writing code, verify syntax and basic logic
+   - Run linter: `ruff check .`
+   - Check type hints are correct
+   - Verify async/await usage
+   - Test error paths
+
+4. **Context:**
+   - Always reference specific file paths when discussing code
+   - Use code references (startLine:endLine:filepath) for existing code
+   - Use markdown code blocks for new code
+   - Explain architecture decisions in commit messages
+
+5. **No Hallucinations:**
+   - Always check imports and variable names
+   - Verify function signatures match usage
+   - Check database models match usage
+   - Verify agent registration
+   - Test changes before marking complete
+
+6. **Code Organization:**
+   - Follow existing patterns
+   - Keep related code together
+   - Use appropriate module structure
+   - Import from correct locations
+   - Avoid circular dependencies
+
+7. **Testing:**
+   - Write tests for new functionality
+   - Update tests when changing behavior
+   - Test both success and error cases
+   - Mock external dependencies
+   - Verify async behavior
+
+**Common Patterns:**
+
+1. **Agent Node Pattern:**
+   ```python
+   async def node_name(state: AgentState) -> AgentState:
+       """
+       Node: Description
+       What this node does.
+       """
+       if state.get("status") == "FAILED":
+           return state
+       
+       try:
+           # Node logic here
+           return {**state, "key": value}
+       except Exception as e:
+           logger.error(f"Error in node_name: {e}")
+           return {**state, "status": "FAILED", "error": str(e)}
+   ```
+
+2. **API Endpoint Pattern:**
+   ```python
+   @router.post("/endpoint", status_code=status.HTTP_200_OK)
+   async def endpoint_name(
+       payload: Schema,
+       db: AsyncSession = Depends(get_db)
+   ):
+       """
+       Endpoint description.
+       """
+       try:
+           # Logic here
+           return {"status": "success"}
+       except Exception as e:
+           logger.error(f"Error: {e}")
+           raise HTTPException(status_code=500, detail=str(e))
+   ```
+
+3. **Database Model Pattern:**
+   ```python
+   class Model(Base):
+       __tablename__ = "table_name"
+       
+       id: Mapped[int] = mapped_column(primary_key=True, index=True)
+       field: Mapped[str] = mapped_column(String, nullable=False)
+       
+       def __repr__(self) -> str:
+           return f"<Model(id={self.id}, field={self.field})>"
+   ```
+
+**Best Practices:**
+
+1. **Always use type hints** - No exceptions
+2. **Always use async for I/O** - Database, APIs, file operations
+3. **Always validate input** - Use Pydantic schemas
+4. **Always handle errors** - Try/except with logging
+5. **Always document** - Docstrings for all public functions
+6. **Always test** - Write tests for new code
+7. **Always lint** - Run ruff before committing
+8. **Always register** - Register new agents in `register_agents()`
+
+**Anti-Patterns (NEVER DO):**
+
+1. ❌ Direct agent imports (use registry)
+2. ❌ Sync database operations (always async)
+3. ❌ Bare except clauses (catch specific exceptions)
+4. ❌ Hardcoded configuration (use settings)
+5. ❌ Missing type hints (always include types)
+6. ❌ Missing docstrings (always document)
+7. ❌ Mixing sync/async I/O (always async for I/O)
+8. ❌ Direct state mutation (use dict spreading)
+9. ❌ Ignoring errors (always handle errors)
+10. ❌ Skipping tests (always write tests)
+
+**Version: 2.0.0** (Updated for multi-agent MCP architecture)
