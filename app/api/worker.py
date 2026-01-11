@@ -34,13 +34,14 @@ async def run_repair_worker(
 
     logger.info(f"Worker processing job {job_id}")
 
-    # Initialize state
+    # Initialize state with all required fields
     initial_state = {
         "job_id": job_id,
         "run_id": str(gh_payload.workflow_run.id),
         "repo_name": gh_payload.repository.full_name,
         "total_cost": 0.0,
-        "status": "FIXING"
+        "status": "FIXING",
+        "pr_draft": False
     }
 
     try:
