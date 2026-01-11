@@ -1,5 +1,6 @@
 import logging
-from fastapi import APIRouter, Depends, Request, status
+import json
+from fastapi import APIRouter, Depends, Request, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import verify_github_signature
@@ -14,7 +15,6 @@ logger = logging.getLogger(__name__)
 @router.post("/github", status_code=status.HTTP_202_ACCEPTED)
 async def github_webhook(
     request: Request,
-    payload: GitHubWebhookPayload,
     db: AsyncSession = Depends(get_db),
     _signature: None = Depends(verify_github_signature)
 ):
@@ -23,24 +23,41 @@ async def github_webhook(
     Validates signature and filters for failed workflow runs.
     Dispatches to Cloud Tasks for reliable execution.
     """
-    # Check for Ping event
+    # Read raw body BEFORE Pydantic validation
     event_type = request.headers.get("X-GitHub-Event")
     logger.info(f"Received GitHub event: {event_type}")
-
-    # Log raw body for debugging Pydantic validation
-    raw_body = await request.body()
-    logger.debug(f"Raw webhook body: {raw_body.decode()}")
+    
+    try:
+        raw_body = await request.body()
+        logger.debug(f"Raw webhook body: {raw_body.decode()}")
+        
+        # Parse JSON manually to see what we're working with
+        body_dict = json.loads(raw_body)
+        logger.debug(f"Parsed JSON keys: {list(body_dict.keys())}")
+        
+        # Now validate with Pydantic
+        payload = GitHubWebhookPayload(**body_dict)
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in webhook body: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
+    except Exception as e:
+        logger.error(f"Pydantic validation failed: {e}")
+        logger.error(f"Body was: {raw_body.decode() if 'raw_body' in locals() else 'N/A'}")
+        raise HTTPException(status_code=422, detail=f"Validation error: {e}")
 
     if event_type == "ping":
         return {"message": "Pong"}
 
     # Only process 'workflow_run' events that have failed
     if not payload.workflow_run or payload.workflow_run.conclusion != "failure":
+        logger.info(f"Ignoring event: workflow_run={payload.workflow_run is not None}, conclusion={payload.workflow_run.conclusion if payload.workflow_run else 'N/A'}")
         return {"message": "Ignored: Not a failed workflow run"}
 
     # Create a new repair job record
     repo_name = payload.repository.full_name if payload.repository else "unknown"
     run_id = str(payload.workflow_run.id)
+
+    logger.info(f"Creating repair job for repo={repo_name}, run_id={run_id}")
 
     new_job = RepairJob(
         repo_name=repo_name,
@@ -62,7 +79,6 @@ async def github_webhook(
         logger.info(f"Created Cloud Task {task_name} for job {new_job.id}")
     except Exception as e:
         logger.error(f"Failed to create Cloud Task for job {new_job.id}: {e}")
-        # Optionally update job status to FAILED here
         return {"message": "Repair job created but failed to dispatch", "job_id": new_job.id}
 
     return {
