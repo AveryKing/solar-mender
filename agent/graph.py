@@ -6,7 +6,7 @@ from agent.nodes.classify import classify_node
 from agent.nodes.locate import locate_node
 from agent.nodes.fix import fix_node
 from agent.nodes.github_pr import pr_node
-from langfuse.langchain import CallbackHandler
+from langfuse.callback import CallbackHandler
 from app.core.config import settings
 
 def create_repair_graph():
