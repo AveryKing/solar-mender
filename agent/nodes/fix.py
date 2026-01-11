@@ -1,4 +1,5 @@
 import logging
+import json
 from github import Github
 from app.core.config import settings
 from agent.state import AgentState
