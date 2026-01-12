@@ -30,4 +30,11 @@ def get_langfuse_callback() -> Optional[object]:
         return None
     except Exception as e:
         logger.warning(f"Failed to initialize Langfuse callback: {type(e).__name__}: {e}", exc_info=True)
+        try:
+             import traceback
+             logger.error(f"Langfuse init traceback: {traceback.format_exc()}")
+             from app.core.config import settings
+             logger.info(f"Langfuse settings check - Host: {settings.LANGFUSE_HOST}, Public Key present: {bool(settings.LANGFUSE_PUBLIC_KEY)}, Secret Key present: {bool(settings.LANGFUSE_SECRET_KEY)}")
+        except Exception as inner_e:
+             logger.error(f"Error logging Langfuse details: {inner_e}")
         return None
