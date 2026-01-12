@@ -23,7 +23,9 @@ async def diagnose_node(state: RepairAgentState) -> RepairAgentState:
         run = repo.get_workflow_run(int(state['run_id']))
         
         # Check if the failure was caused by the agent itself
-        commit_author = run.head_commit.author.login
+        # Check if the failure was caused by the agent itself
+        # run.head_commit.author is a GitAuthor (has name/email, not login)
+        commit_author = run.head_commit.author.name if run.head_commit and run.head_commit.author else ""
         if commit_author == "diviora-repair-agent[bot]" or "repair-agent" in commit_author.lower():
             return {
                 **state,
