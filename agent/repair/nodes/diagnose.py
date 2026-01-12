@@ -33,10 +33,30 @@ async def diagnose_node(state: RepairAgentState) -> RepairAgentState:
                 "error": f"Possible infinite loop detected: failure caused by {commit_author}"
             }
 
-        # Fetch logs (simplified logic for brevity, PyGithub logs access)
-        logs_url = run.get_logs_url()
+        # Fetch logs using gh CLI for reliability
+        import subprocess
+        try:
+            # We use the valid gh CLI already authenticated in the environment
+            # This fetches the logs for the failed steps only
+            result = subprocess.run(
+                ["gh", "run", "view", str(state['run_id']), "--repo", state['repo_name'], "--log-failed"],
+                capture_output=True,
+                text=True,
+                check=False  # Don't throw on error, we handle it
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                logs_content = result.stdout[:20000] # Truncate to avoid context limit
+            else:
+                # Fallback if no failed logs (e.g. run success) or error
+                logs_content = f"Could not fetch detailed logs. stdout: {result.stdout}, stderr: {result.stderr}"
+                if result.returncode != 0:
+                     logger.warning(f"gh cli failed: {result.stderr}")
+        except Exception as log_ex:
+            logger.error(f"Failed to fetch logs via subprocess: {log_ex}")
+            logs_content = "Error retrieving logs."
+
         # For this implementation, we assume we fetch the text summary of the logs
-        logs_content = "Mock logs: Error: module 'axios' not found in app/utils/api.py"
+
         
         # Get model and configure structured output
         model = vertex_client.get_model("flash")

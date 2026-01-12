@@ -29,12 +29,12 @@ class VertexAIClient:
                 }
                 
                 self._flash_model = ChatVertexAI(
-                    model_name="gemini-1.5-flash",
+                    model_name="gemini-1.5-flash-001",
                     **common_kwargs
                 )
                 
                 self._pro_model = ChatVertexAI(
-                    model_name="gemini-1.5-pro",
+                    model_name="gemini-1.5-pro-001",
                     **common_kwargs
                 )
                 
