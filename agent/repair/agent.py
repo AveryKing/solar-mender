@@ -104,6 +104,24 @@ class RepairAgent(BaseAgent):
                     },
                     "required": ["run_id", "repo_name"]
                 }
+            },
+            {
+                "name": "mender.monitor_deployment",
+                "description": "Delegate deployment monitoring to Solar Mender. The agent will watch the run and attempt auto-healing on failure.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "run_id": {
+                            "type": "string",
+                            "description": "GitHub Actions workflow run ID"
+                        },
+                        "repo_name": {
+                            "type": "string",
+                            "description": "Repository name (owner/repo)"
+                        }
+                    },
+                    "required": ["run_id", "repo_name"]
+                }
             }
         ]
     

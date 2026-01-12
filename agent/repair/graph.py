@@ -6,6 +6,7 @@ from agent.repair.nodes.classify import classify_node
 from agent.repair.nodes.locate import locate_node
 from agent.repair.nodes.fix import fix_node
 from agent.repair.nodes.github_pr import pr_node
+from agent.repair.nodes.monitor import monitor_deployment_node
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +26,24 @@ def create_repair_graph():
     workflow.add_node("locate", locate_node)
     workflow.add_node("fix", fix_node)
     workflow.add_node("pr", pr_node)
+    workflow.add_node("monitor", monitor_deployment_node)
 
-    # Set Entry Point
-    workflow.set_entry_point("diagnose")
+    # Entry point depends on the initial status
+    def route_start(state: RepairAgentState) -> str:
+        if state.get("status") == "MONITORING":
+            return "monitor"
+        return "diagnose"
+
+    workflow.set_conditional_entry_point(
+        route_start,
+        {
+            "monitor": "monitor",
+            "diagnose": "diagnose"
+        }
+    )
+
+    # Add Edges
+    workflow.add_edge("monitor", END)
 
     # Add Edges with conditional routing
     workflow.add_edge("diagnose", "classify")

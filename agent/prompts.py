@@ -74,3 +74,23 @@ Return a JSON array of file paths that should be read for context (imports, test
     "related_files": ["path/to/file1", "path/to/file2"]
 }}
 """
+
+# Commitment Agent Prompts
+COMMIT_CRAFT_PROMPT = """You are a Senior Software Engineer at Diviora Systems.
+Your goal is to write a high-fidelity commit message for the provided git diff.
+
+GUIDELINES:
+1. Mood: Use the Imperative Mood (e.g., "Add auth middleware" instead of "Added").
+2. Structure: 50-character header, blank line, 72-character body.
+3. The "Why" vs. "What": Explain WHY the change was made, not just what was changed. 
+4. Context: Use the provided context to understand the intent.
+5. Tone: Professional engineering terms. Avoid "Enhanced", "Revolutionized", "Optimized".
+
+DIFF:
+{diff}
+
+CONTEXT:
+{context}
+
+Return the response as a structured CommitMessage object.
+"""

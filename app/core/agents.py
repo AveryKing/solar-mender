@@ -14,12 +14,22 @@ def register_agents() -> None:
     try:
         from agent.registry import get_registry
         from agent.repair.agent import RepairAgent
+        from agent.commitment.agent import CommitmentAgent
+        from agent.audit.agent import AuditAgent
         
         registry = get_registry()
         
         # Register repair agent
         repair_agent = RepairAgent()
         registry.register(repair_agent)
+
+        # Register commitment agent
+        commitment_agent = CommitmentAgent()
+        registry.register(commitment_agent)
+        
+        # Register audit agent
+        audit_agent = AuditAgent()
+        registry.register(audit_agent)
         
         logger.info(f"Registered {len(registry.list_agents())} agent(s)")
     except ImportError as e:

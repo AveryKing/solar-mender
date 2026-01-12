@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api import webhook, worker, metrics, agents
+from app.api import webhook, worker, metrics, agents, mcp, resources
 
 api_router = APIRouter()
 
@@ -14,6 +14,12 @@ api_router.include_router(metrics.router, prefix="/metrics", tags=["metrics"])
 
 # Include agent discovery routes
 api_router.include_router(agents.router, prefix="/agents", tags=["agents"])
+
+# Include MCP tool handler routes
+api_router.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
+
+# Include MCP resource routes
+api_router.include_router(resources.router, prefix="/resources", tags=["resources"])
 
 @api_router.get("/health", tags=["health"])
 async def health_check():

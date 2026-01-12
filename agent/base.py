@@ -73,12 +73,18 @@ class BaseAgent(ABC):
     
     def get_mcp_tools(self) -> List[Dict[str, Any]]:
         """
-        Return MCP tools this agent exposes.
+        Return MCP tools this agent exposes to the IDE agent via MCP.
         
-        Override this method to expose agent-specific tools via MCP.
+        Override this method to expose agent-specific tools.
+        Tools follow the Model Context Protocol (MCP) tool schema.
+        
+        Common tool patterns for delegation:
+        - name: "mender.monitor_deployment", description: "Watch a GH Action run"
+        - name: "mender.craft_commit", description: "Generate human-grade commit messages"
+        - name: "mender.remote_build", description: "Run build and self-heal on server"
         
         Returns:
-            List of MCP tool definitions.
+            List of MCP tool definitions with name, description, and inputSchema.
         """
         return []
     
@@ -86,9 +92,11 @@ class BaseAgent(ABC):
         """
         Return MCP resources this agent exposes.
         
-        Override this method to expose agent-specific resources via MCP.
+        Override this method to expose agent-specific resources like:
+        - uri: "mender://audit/latest", name: "Latest System Audit"
+        - uri: "mender://logs/{job_id}", name: "Specific Job Logs"
         
         Returns:
-            List of MCP resource definitions.
+            List of MCP resource definitions with uri, name, and mimeType.
         """
         return []

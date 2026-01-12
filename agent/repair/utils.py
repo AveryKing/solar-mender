@@ -17,10 +17,13 @@ def get_langfuse_callback() -> Optional[object]:
         from app.core.config import settings
         
         # Set environment variables for Langfuse to pick up
+        # Langfuse reads from environment variables automatically
         os.environ["LANGFUSE_PUBLIC_KEY"] = settings.LANGFUSE_PUBLIC_KEY
         os.environ["LANGFUSE_SECRET_KEY"] = settings.LANGFUSE_SECRET_KEY
         os.environ["LANGFUSE_HOST"] = settings.LANGFUSE_HOST
         
+        # Initialize CallbackHandler without arguments
+        # It will read credentials from environment variables automatically
         return CallbackHandler()
     except ImportError:
         logger.warning("Langfuse CallbackHandler not available")
