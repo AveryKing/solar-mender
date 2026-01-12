@@ -25,9 +25,9 @@ def get_langfuse_callback() -> Optional[object]:
         # Initialize CallbackHandler without arguments
         # It will read credentials from environment variables automatically
         return CallbackHandler()
-    except ImportError:
-        logger.warning("Langfuse CallbackHandler not available")
+    except ImportError as e:
+        logger.warning(f"Langfuse CallbackHandler not available (ImportError): {e}")
         return None
     except Exception as e:
-        logger.warning(f"Failed to initialize Langfuse callback: {e}")
+        logger.warning(f"Failed to initialize Langfuse callback: {type(e).__name__}: {e}", exc_info=True)
         return None
