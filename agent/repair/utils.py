@@ -13,7 +13,7 @@ def get_langfuse_callback() -> Optional[object]:
         CallbackHandler instance if available, None otherwise.
     """
     try:
-        from langfuse.callback import CallbackHandler
+        from langfuse.langchain import CallbackHandler
         from app.core.config import settings
         
         # Set environment variables for Langfuse to pick up
