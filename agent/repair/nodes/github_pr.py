@@ -1,5 +1,4 @@
 import logging
-from github import Github, InputGitTreeElement
 from app.core.config import settings
 from agent.repair.state import RepairAgentState
 
@@ -14,6 +13,8 @@ async def pr_node(state: RepairAgentState) -> RepairAgentState:
         return state
 
     logger.info(f"Opening PR for {state['repo_name']}")
+    
+    from github import Github, InputGitTreeElement
     
     try:
         gh = Github(settings.GITHUB_TOKEN)

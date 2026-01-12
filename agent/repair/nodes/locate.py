@@ -1,8 +1,6 @@
 import logging
-from github import Github
 from app.core.config import settings
 from agent.repair.state import RepairAgentState
-from agent.llm import vertex_client
 from agent.utils import estimate_vertex_cost
 from agent.context import get_related_files
 from agent.schemas import LocateResponse
@@ -19,6 +17,9 @@ async def locate_node(state: RepairAgentState) -> RepairAgentState:
         return state
 
     logger.info(f"Locating file for root cause: {state['root_cause']}")
+    
+    from github import Github
+    from agent.llm import vertex_client
     
     try:
         gh = Github(settings.GITHUB_TOKEN)

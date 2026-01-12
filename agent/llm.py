@@ -1,6 +1,5 @@
 from typing import Dict, Any, Optional
 import logging
-from langchain_google_vertexai import ChatVertexAI
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -11,13 +10,15 @@ class VertexAIClient:
     Lazy initializes the models to prevent startup crashes.
     """
     def __init__(self):
-        self._flash_model: Optional[ChatVertexAI] = None
-        self._pro_model: Optional[ChatVertexAI] = None
+        self._flash_model: Optional[Any] = None
+        self._pro_model: Optional[Any] = None
         self._initialized = False
 
     def _init(self):
         if not self._initialized:
             try:
+                from langchain_google_vertexai import ChatVertexAI
+                
                 # ChatVertexAI automatically picks up credentials from environment
                 # or we can pass project/location explicitly
                 common_kwargs = {
@@ -44,7 +45,7 @@ class VertexAIClient:
                 logger.error(f"Vertex AI initialization failed: {e}")
                 print(f"Vertex AI initialization failed: {e}")
 
-    def get_model(self, model_type: str = "flash") -> ChatVertexAI:
+    def get_model(self, model_type: str = "flash") -> Any:
         """Returns the requested LangChain ChatVertexAI instance."""
         self._init()
         if model_type == "pro":

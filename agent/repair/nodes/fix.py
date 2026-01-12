@@ -1,8 +1,6 @@
 import logging
-from github import Github
 from app.core.config import settings
 from agent.repair.state import RepairAgentState
-from agent.llm import vertex_client
 from agent.utils import estimate_vertex_cost
 from agent.schemas import FixResponse
 from agent.prompts import FIX_PROMPT
@@ -18,6 +16,9 @@ async def fix_node(state: RepairAgentState) -> RepairAgentState:
         return state
 
     logger.info(f"Generating fix for {state['target_file_path']}")
+    
+    from github import Github
+    from agent.llm import vertex_client
     
     try:
         gh = Github(settings.GITHUB_TOKEN)

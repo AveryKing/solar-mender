@@ -1,8 +1,7 @@
 import logging
 from agent.commitment.state import CommitmentState
 from agent.commitment.schemas import CommitMessage
-from agent.llm import vertex_client
-from agent.prompts import COMMIT_CRAFT_PROMPT  # We will define this next
+from agent.prompts import COMMIT_CRAFT_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +12,8 @@ async def craft_commit_node(state: CommitmentState) -> CommitmentState:
     """
     if state.get("status") == "FAILED":
         return state
+
+    from agent.llm import vertex_client
 
     try:
         model = vertex_client.get_model("pro")  # Pro for better reasoning

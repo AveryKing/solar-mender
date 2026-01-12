@@ -1,8 +1,6 @@
 import logging
-from github import Github
 from app.core.config import settings
 from agent.repair.state import RepairAgentState
-from agent.llm import vertex_client
 from agent.utils import estimate_vertex_cost
 from agent.schemas import DiagnoseResponse
 from agent.prompts import DIAGNOSE_PROMPT
@@ -15,6 +13,9 @@ async def diagnose_node(state: RepairAgentState) -> RepairAgentState:
     Fetches GitHub Action logs and uses Gemini 1.5 Flash to identify root cause.
     """
     logger.info(f"Diagnosing job {state['job_id']} for repo {state['repo_name']}")
+    
+    from github import Github
+    from agent.llm import vertex_client
     
     try:
         gh = Github(settings.GITHUB_TOKEN)
