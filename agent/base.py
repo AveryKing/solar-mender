@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
-from langgraph.graph import CompiledGraph
 import logging
 
 logger = logging.getLogger(__name__)
@@ -49,7 +48,7 @@ class BaseAgent(ABC):
     
     @property
     @abstractmethod
-    def graph(self) -> CompiledGraph:
+    def graph(self) -> Any:
         """
         Compiled LangGraph instance.
         

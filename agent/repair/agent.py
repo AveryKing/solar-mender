@@ -1,6 +1,5 @@
 from typing import Dict, Any, List
 import logging
-from langgraph.graph import CompiledGraph
 
 from agent.base import BaseAgent
 from agent.repair.graph import create_repair_graph
@@ -20,7 +19,7 @@ class RepairAgent(BaseAgent):
     
     def __init__(self) -> None:
         """Initialize the repair agent."""
-        self._graph: CompiledGraph = create_repair_graph()
+        self._graph: Any = create_repair_graph()
         self._name: str = "repair"
         self._description: str = "Automatically diagnoses and fixes CI/CD failures in GitHub Actions workflows"
         self._capabilities: List[str] = [
@@ -47,7 +46,7 @@ class RepairAgent(BaseAgent):
         return self._capabilities
     
     @property
-    def graph(self) -> CompiledGraph:
+    def graph(self) -> Any:
         """Compiled LangGraph instance."""
         return self._graph
     

@@ -1,7 +1,6 @@
 from typing import Dict, Any, List
 import logging
 from datetime import datetime
-from langgraph.graph import CompiledGraph
 
 from agent.base import BaseAgent
 
@@ -38,7 +37,7 @@ class AuditAgent(BaseAgent):
         return self._capabilities
     
     @property
-    def graph(self) -> CompiledGraph:
+    def graph(self) -> Any:
         """
         Compiled LangGraph instance.
         

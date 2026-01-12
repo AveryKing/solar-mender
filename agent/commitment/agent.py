@@ -1,6 +1,5 @@
 from typing import Dict, Any, List
 import logging
-from langgraph.graph import CompiledGraph
 
 from agent.base import BaseAgent
 from agent.commitment.graph import create_commitment_graph
@@ -13,7 +12,7 @@ class CommitmentAgent(BaseAgent):
     """
     
     def __init__(self) -> None:
-        self._graph: CompiledGraph = create_commitment_graph()
+        self._graph: Any = create_commitment_graph()
         self._name: str = "commitment"
         self._description: str = "Crafts professional, human-grade commit messages following the 50/72 rule and explaining the 'Why' vs 'What'."
         self._capabilities: List[str] = ["craft_commit"]
@@ -31,7 +30,7 @@ class CommitmentAgent(BaseAgent):
         return self._capabilities
     
     @property
-    def graph(self) -> CompiledGraph:
+    def graph(self) -> Any:
         return self._graph
     
     async def invoke(self, state: Dict[str, Any]) -> Dict[str, Any]:
